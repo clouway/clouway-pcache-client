@@ -1,0 +1,17 @@
+apply plugin: 'java'
+
+description = 'A helper testing package of pcache library'
+
+repositories {
+  mavenCentral()
+}
+
+javadoc {
+  failOnError = false
+}
+
+dependencies {
+  compile project(':clouway-pcache-client-core')
+
+  compile 'junit:junit:4.11'
+}

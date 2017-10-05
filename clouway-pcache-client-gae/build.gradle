@@ -1,0 +1,36 @@
+apply plugin: 'java'
+
+buildscript {
+  ext.gae_version = '1.9.54'
+}
+
+repositories {
+  mavenCentral()
+}
+
+configurations { providedCompile }
+
+sourceSets.main.compileClasspath += configurations.providedCompile
+sourceSets.test.compileClasspath += configurations.providedCompile
+sourceSets.test.runtimeClasspath += configurations.providedCompile
+
+javadoc {
+  failOnError = false
+  classpath = configurations.compile + configurations.providedCompile
+}
+
+description = 'clouWay public cache client library for GAE'
+
+dependencies {
+  compile project(':clouway-pcache-client-core')
+
+  providedCompile 'com.google.inject:guice:3.0'
+  providedCompile 'com.google.guava:guava:18.0', 'junit:junit:4.11', "com.google.appengine:appengine-api-1.0-sdk:$gae_version"
+
+
+  testCompile project(':clouway-pcache-client-testing')
+  testCompile "com.google.appengine:appengine-api-stubs:$gae_version", "com.google.appengine:appengine-testing:$gae_version"
+  testCompile 'org.easymock:easymock:3.4'
+
+}
+

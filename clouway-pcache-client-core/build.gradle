@@ -1,0 +1,16 @@
+apply plugin: 'java'
+
+repositories {
+  mavenCentral()
+}
+
+javadoc {
+  failOnError = false
+}
+
+description = 'clouWay public cache client library core'
+
+dependencies {
+  
+}
+
