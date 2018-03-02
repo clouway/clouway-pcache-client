@@ -95,4 +95,9 @@ public interface CacheManager {
    * @return true if contains that object, false if not
    */
    boolean contains(Object key);
+
+  /**
+   * Flush all cache
+   */
+  void flushCache();
 }

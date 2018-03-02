@@ -135,6 +135,11 @@ public class InMemoryCacheManager implements CacheManager {
     return values.containsKey(key);
   }
 
+  @Override
+  public void flushCache() {
+    flush();
+  }
+
   public void flush() {
     values = new HashMap<Object, TimeValue>();
   }

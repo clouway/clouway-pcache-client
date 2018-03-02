@@ -116,4 +116,10 @@ import java.util.logging.Logger;
   public boolean contains(Object key) {
     return memcacheService.contains(key);
   }
+
+  @Override
+  public void flushCache() {
+    memcacheService.clearAll();
+    log.info("Cache was flushed for namespace: " + memcacheService.getNamespace());
+  }
 }
