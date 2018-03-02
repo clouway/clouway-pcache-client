@@ -105,6 +105,25 @@ public abstract class CacheManagerContract {
     Assert.assertNull(expectingNullValueToBeReturned);
   }
 
+  @Test
+  public void flushAllCache() {
+    cacheManager.put("::key1::", "::value1::");
+    cacheManager.put("::key2::", "::value2::");
+
+    cacheManager.flushCache();
+
+    Object value1 = cacheManager.get("::key1::");
+    Object value2 = cacheManager.get("::key2::");
+
+    Assert.assertNull(value1);
+    Assert.assertNull(value2);
+  }
+
+  @Test
+  public void flushCacheWhenThereIsNoItems() {
+    cacheManager.flushCache();
+  }
+
   protected abstract CacheManager createCacheManager();
 
 }
