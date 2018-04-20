@@ -23,7 +23,7 @@ allprojects {
   targetCompatibility = 1.7
 
   group = 'com.clouway.pcache'
-  version = '0.0.1'
+  version = '0.0.2'
 
   modifyPom {
     project {
