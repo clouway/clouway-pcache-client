@@ -2,11 +2,18 @@ package com.clouway.api.pcache.extensions.gae;
 
 import com.clouway.api.pcache.CacheExceptionTranslator;
 import com.clouway.api.pcache.CacheManager;
+import com.clouway.api.pcache.MissedHitsProvider;
+import com.clouway.api.pcache.MatchResult;
 import com.clouway.api.pcache.SafeValue;
 import com.google.appengine.api.memcache.Expiration;
 import com.google.appengine.api.memcache.MemcacheService;
 import com.google.appengine.api.memcache.MemcacheService.IdentifiableValue;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
@@ -72,7 +79,44 @@ import java.util.logging.Logger;
     return result;
   }
 
-  /**
+    @Override
+    @SuppressWarnings("unchecked")
+    public <V> MatchResult<V> getAll(List<String> keys, Class<V> clazz) {
+      Map<String, V> hits = new HashMap<>();
+      List<String> missed = new LinkedList<>();
+
+      try {
+        Map<String, Object> rawHits = memcacheService.getAll(keys);
+        for(String key : keys) {
+            if(!rawHits.containsKey(key)) {
+                missed.add(key);
+            } else {
+                try {
+                    hits.put(key, clazz.cast(rawHits.get(key)));
+                } catch (ClassCastException e) {
+                    missed.add(key);
+                }
+            }
+        }
+      } catch (Exception e) {
+        missed = keys;
+      }
+
+      return new MatchResult(new ArrayList<>(hits.values()), missed);
+    }
+
+    @Override
+    public <T> List<T> getAll(List<String> keys, Class<T> clazz, MissedHitsProvider<T> missedHitsProvider) {
+        List<T> output = new LinkedList<>();
+        MatchResult<T> result = getAll(keys, clazz);
+
+        output.addAll(result.getHits());
+        output.addAll(missedHitsProvider.get(result.getMissedKeys()));
+
+        return output;
+    }
+
+    /**
    *
    * @param key the key
    */

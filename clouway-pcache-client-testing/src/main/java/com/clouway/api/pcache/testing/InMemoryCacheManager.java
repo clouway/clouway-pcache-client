@@ -2,10 +2,14 @@ package com.clouway.api.pcache.testing;
 
 import com.clouway.api.pcache.CacheException;
 import com.clouway.api.pcache.CacheManager;
+import com.clouway.api.pcache.MissedHitsProvider;
+import com.clouway.api.pcache.MatchResult;
 import com.clouway.api.pcache.SafeValue;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertFalse;
@@ -68,6 +72,41 @@ public class InMemoryCacheManager implements CacheManager {
       return null;
     }
     return values.get(key).value;
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public <V> MatchResult<V> getAll(List<String> keys, Class<V> clazz) {
+    List<V> hits = new LinkedList<>();
+    List<String> missed = new LinkedList<>();
+
+    for(String key: keys) {
+      TimeValue timeValue = values.get(key);
+
+      if(timeValue != null) {
+        try {
+          hits.add(clazz.cast(timeValue.value));
+        } catch(ClassCastException e) {
+          missed.add(key);
+        }
+      } else {
+        missed.add(key);
+      }
+    }
+
+    return new MatchResult(hits, missed);
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public <T> List<T> getAll(List<String> keys, Class<T> clazz, MissedHitsProvider<T> missedHitsProvider) {
+    List<T> output = new LinkedList<>();
+    MatchResult result = getAll(keys, clazz);
+
+    output.addAll(result.getHits());
+    output.addAll(missedHitsProvider.get(result.getMissedKeys()));
+
+    return output;
   }
 
   public void remove(String key) {
