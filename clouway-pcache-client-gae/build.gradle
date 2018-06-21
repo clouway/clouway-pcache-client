@@ -31,5 +31,6 @@ dependencies {
   testCompile project(':clouway-pcache-client-testing')
   testCompile "com.google.appengine:appengine-api-stubs:$gae_version", "com.google.appengine:appengine-testing:$gae_version"
   testCompile 'org.easymock:easymock:3.4'
+
 }
 
