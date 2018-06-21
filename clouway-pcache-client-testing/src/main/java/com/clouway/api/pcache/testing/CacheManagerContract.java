@@ -3,12 +3,29 @@ package com.clouway.api.pcache.testing;
 import com.clouway.api.pcache.CacheException;
 import com.clouway.api.pcache.CacheManager;
 import com.clouway.api.pcache.CacheTime;
+import com.clouway.api.pcache.MissedHitsProvider;
+import com.clouway.api.pcache.MatchResult;
 import com.clouway.api.pcache.SafeValue;
+import org.jmock.Expectations;
+import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+
+import static junit.framework.TestCase.assertNull;
+import static junit.framework.TestCase.assertTrue;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -18,6 +35,9 @@ public abstract class CacheManagerContract {
   static class NotSerializableObject {
 
   }
+
+  @Rule
+  public JUnitRuleMockery context = new JUnitRuleMockery();
 
   private CacheManager cacheManager;
 
@@ -33,7 +53,7 @@ public abstract class CacheManagerContract {
 
     cacheManager.put(key, value);
     String result = (String) cacheManager.get(key);
-    Assert.assertEquals(result, value);
+    assertEquals(result, value);
   }
 
 
@@ -58,7 +78,7 @@ public abstract class CacheManagerContract {
 
     cacheManager.remove(key);
 
-    Assert.assertNull(cacheManager.get(key));
+    assertNull(cacheManager.get(key));
 
   }
 
@@ -69,10 +89,10 @@ public abstract class CacheManagerContract {
     SafeValue user1Get = cacheManager.getSafeValue("key1");
     SafeValue user2Get = cacheManager.getSafeValue("key1");
 
-    Assert.assertTrue(cacheManager.safePut("key1", user2Get, "user 2 change"));
-    Assert.assertFalse(cacheManager.safePut("key1", user1Get, "user 1 change"));
+    assertTrue(cacheManager.safePut("key1", user2Get, "user 2 change"));
+    assertFalse(cacheManager.safePut("key1", user1Get, "user 1 change"));
 
-    Assert.assertThat((String) cacheManager.get("key1"), is("user 2 change"));
+    assertThat((String) cacheManager.get("key1"), is("user 2 change"));
   }
 
   @Test
@@ -82,10 +102,10 @@ public abstract class CacheManagerContract {
     SafeValue user1Get = cacheManager.getSafeValue("key1");
     SafeValue user2Get = cacheManager.getSafeValue("key1");
 
-    Assert.assertTrue(cacheManager.safePut("key1", user1Get, "user 1 change"));
-    Assert.assertFalse(cacheManager.safePut("key1", user2Get, "user 2 change"));
+    assertTrue(cacheManager.safePut("key1", user1Get, "user 1 change"));
+    assertFalse(cacheManager.safePut("key1", user2Get, "user 2 change"));
 
-    Assert.assertThat((String) cacheManager.getSafeValue("key1").getValue(), is("user 1 change"));
+    assertThat((String) cacheManager.getSafeValue("key1").getValue(), is("user 1 change"));
   }
 
   @Test
@@ -95,14 +115,14 @@ public abstract class CacheManagerContract {
 
     SafeValue safeValue = cacheManager.getSafeValue("key1");
 
-    Assert.assertTrue(cacheManager.safePut("key1", safeValue, "value 2", 10));
-    Assert.assertThat((String) cacheManager.getSafeValue("key1").getValue(), is("value 2"));
+    assertTrue(cacheManager.safePut("key1", safeValue, "value 2", 10));
+    assertThat((String) cacheManager.getSafeValue("key1").getValue(), is("value 2"));
   }
 
   @Test
   public void nullSafeValueIsReturnedWhenUnknownKeyIsRequested() {
     SafeValue expectingNullValueToBeReturned = cacheManager.getSafeValue("unknown key");
-    Assert.assertNull(expectingNullValueToBeReturned);
+    assertNull(expectingNullValueToBeReturned);
   }
 
   @Test
@@ -115,8 +135,8 @@ public abstract class CacheManagerContract {
     Object value1 = cacheManager.get("::key1::");
     Object value2 = cacheManager.get("::key2::");
 
-    Assert.assertNull(value1);
-    Assert.assertNull(value2);
+    assertNull(value1);
+    assertNull(value2);
   }
 
   @Test
@@ -124,6 +144,115 @@ public abstract class CacheManagerContract {
     cacheManager.flushCache();
   }
 
-  protected abstract CacheManager createCacheManager();
+  @Test
+  public void getManyValuesAtOnce() {
+    cacheManager.put("::key1::", "::value1::");
+    cacheManager.put("::key2::", "::value2::");
 
+    MatchResult<String> result = cacheManager.getAll(Arrays.asList("::key1::", "::key2::"), String.class);
+
+    assertThat(result.hasMissedKeys(), is(equalTo(false)));
+    assertThat(result.getHits(), containsInAnyOrder("::value1::", "::value2::"));
+  }
+
+  @Test
+  public void partialCacheHit() {
+    cacheManager.put("::key1::", "::value1::");
+
+    MatchResult<String> result = cacheManager.getAll(Arrays.asList("::key1::", "::key2::"), String.class);
+
+    assertThat(result.getHits().size(), is(equalTo(1)));
+    assertThat(result.hasMissedKeys(), is(equalTo(true)));
+    assertThat(result.getHits(), containsInAnyOrder("::value1::"));
+    assertThat(result.getMissedKeys(), containsInAnyOrder("::key2::"));
+  }
+
+  @Test
+  public void noCacheHits() {
+    MatchResult<String> result = cacheManager.getAll(Arrays.asList("::key1::", "::key2::"), String.class);
+
+    assertThat(result.getHits().size(), is(equalTo(0)));
+    assertThat(result.getMissedKeys(), containsInAnyOrder("::key1::", "::key2::"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void getMissedFromOtherProvider() {
+    cacheManager.put("::key1::", "::value1::");
+
+    final MissedHitsProvider<String> func = context.mock(MissedHitsProvider.class);
+
+    context.checking(new Expectations() {{
+      oneOf(func).get(Arrays.asList("::key2::", "::key3::"));
+      will(returnValue(Arrays.asList("::value2::", "::value3::")));
+    }});
+
+    List<String> result = cacheManager.getAll(Arrays.asList("::key1::", "::key2::", "::key3::"), String.class, func);
+
+    assertThat(result, containsInAnyOrder("::value1::", "::value2::", "::value3::"));
+  }
+
+  @Test
+  public void tryToGetObjectFromDifferentType() {
+    cacheManager.put("::key1::", 540000000000000000L);
+
+    MatchResult<Character> booleanResult = cacheManager.getAll(Arrays.asList("::key1::"), Character.class);
+
+    assertThat(booleanResult.hasMissedKeys(), is(equalTo(true)));
+  }
+
+  @Test
+  public void tryToGetSomeObjectsFromDifferentType() {
+    cacheManager.put("::key1::", "::value::");
+    cacheManager.put("::key2::", true);
+
+    MatchResult<String> stringResult = cacheManager.getAll(Arrays.asList("::key1::", "::key2::"), String.class);
+    MatchResult<Boolean> booleanResult = cacheManager.getAll(Arrays.asList("::key1::", "::key2::"), Boolean.class);
+
+    assertThat(stringResult.getMissedKeys(), is(equalTo(Arrays.asList("::key2::"))));
+    assertThat(stringResult.getHits(), is(equalTo(Arrays.asList("::value::"))));
+
+    assertThat(booleanResult.getMissedKeys(), is(equalTo(Arrays.asList("::key1::"))));
+    assertThat(booleanResult.getHits(), is(equalTo(Arrays.asList(true))));
+  }
+
+  @Test
+  public void getCompositeObject() {
+    Person person = new Person("Stanimir", 20);
+
+    cacheManager.put("::key1::", person);
+    cacheManager.put("::key2::", 15);
+
+    MatchResult<Person> result = cacheManager.getAll(Arrays.asList("::key1::", "::key2::"), Person.class);
+
+    assertThat(result.getMissedKeys(), is(equalTo(Arrays.asList("::key2::"))));
+    assertThat(result.getHits().get(0), is(equalTo(person)));
+  }
+
+  protected abstract CacheManager createCacheManager();
+}
+
+class Person implements Serializable {
+  private String name;
+  private int age;
+
+  public Person(String name, int age) {
+    this.name = name;
+    this.age = age;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Person person = (Person) o;
+    return age == person.age &&
+            Objects.equals(name, person.name);
+  }
+
+  @Override
+  public int hashCode() {
+
+    return Objects.hash(name, age);
+  }
 }
