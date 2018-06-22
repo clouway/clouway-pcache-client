@@ -229,6 +229,18 @@ public abstract class CacheManagerContract {
     assertThat(result.getHits().get(0), is(equalTo(person)));
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  public void doNotCallProviderIfThereIsNoMissedKeys() {
+    cacheManager.put("::key1::", "::value1::");
+
+    final MissedHitsProvider<String> func = context.mock(MissedHitsProvider.class);
+
+    List<String> result = cacheManager.getAll(Arrays.asList("::key1::"), String.class, func);
+
+    assertThat(result, containsInAnyOrder("::value1::"));
+  }
+
   protected abstract CacheManager createCacheManager();
 }
 

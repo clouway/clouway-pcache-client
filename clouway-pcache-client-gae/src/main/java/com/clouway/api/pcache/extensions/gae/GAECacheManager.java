@@ -111,7 +111,7 @@ import java.util.logging.Logger;
         MatchResult<T> result = getAll(keys, clazz);
 
         output.addAll(result.getHits());
-        output.addAll(missedHitsProvider.get(result.getMissedKeys()));
+        if(result.hasMissedKeys()) output.addAll(missedHitsProvider.get(result.getMissedKeys()));
 
         return output;
     }
