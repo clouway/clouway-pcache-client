@@ -46,19 +46,21 @@ public interface CacheManager {
     /**
      * Gets a list of objects from the cache by their keys
      *
+     * @param prefix used with the keys for lookup in the cache
      * @param keys the keys of desired objects
+     * @param clazz the class of the result
+     * @return object representing the work done
+     */
+   <V> MatchResult<V> getAll(String prefix, List<String> keys, Class<V> clazz);
+
+    /**
+     * Gets a list of objects from the cache by their keys
+     *
+     * @param keys the keys of desired objects
+     * @param clazz the class of the result
      * @return object representing the work done
      */
    <V> MatchResult<V> getAll(List<String> keys, Class<V> clazz);
-
-    /**
-     * Gets a list with cached objects by their keys and get missed from function
-     *
-     * @param keys the keys of desired objects
-     * @param missedHitsProvider implementation of the MissedHitsProvider interface
-     * @return list of objects
-     */
-   <T> List<T> getAll(List<String> keys, Class<T> clazz, MissedHitsProvider<T> missedHitsProvider);
 
    /**
     * Removes an object from the cache by it's key

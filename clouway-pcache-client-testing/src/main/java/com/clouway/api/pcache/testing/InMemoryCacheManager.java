@@ -76,6 +76,29 @@ public class InMemoryCacheManager implements CacheManager {
 
   @Override
   @SuppressWarnings("unchecked")
+  public <V> MatchResult<V> getAll(String prefix, List<String> keys, Class<V> clazz) {
+    List<V> hits = new LinkedList<>();
+    List<String> missed = new LinkedList<>();
+
+    for(String key: keys) {
+      TimeValue timeValue = values.get(prefix+key);
+
+      if(timeValue != null) {
+        try {
+          hits.add(clazz.cast(timeValue.value));
+        } catch(ClassCastException e) {
+          missed.add(key);
+        }
+      } else {
+        missed.add(key);
+      }
+    }
+
+    return new MatchResult(hits, missed);
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
   public <V> MatchResult<V> getAll(List<String> keys, Class<V> clazz) {
     List<V> hits = new LinkedList<>();
     List<String> missed = new LinkedList<>();
@@ -95,18 +118,6 @@ public class InMemoryCacheManager implements CacheManager {
     }
 
     return new MatchResult(hits, missed);
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public <T> List<T> getAll(List<String> keys, Class<T> clazz, MissedHitsProvider<T> missedHitsProvider) {
-    List<T> output = new LinkedList<>();
-    MatchResult result = getAll(keys, clazz);
-
-    output.addAll(result.getHits());
-    if(result.hasMissedKeys()) output.addAll(missedHitsProvider.get(result.getMissedKeys()));
-
-    return output;
   }
 
   public void remove(String key) {

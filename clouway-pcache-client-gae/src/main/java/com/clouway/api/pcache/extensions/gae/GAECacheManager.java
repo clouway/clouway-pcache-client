@@ -81,18 +81,18 @@ import java.util.logging.Logger;
 
     @Override
     @SuppressWarnings("unchecked")
-    public <V> MatchResult<V> getAll(List<String> keys, Class<V> clazz) {
-      Map<String, V> hits = new HashMap<>();
+    public <V> MatchResult<V> getAll(String prefix, List<String> keys, Class<V> clazz) {
+      List<V> hits = new LinkedList<>();
       List<String> missed = new LinkedList<>();
 
       try {
-        Map<String, Object> rawHits = memcacheService.getAll(keys);
+        Map<String, Object> rawHits = memcacheService.getAll(withPrefix(prefix, keys));
         for(String key : keys) {
-            if(!rawHits.containsKey(key)) {
+            if(!rawHits.containsKey(prefix + key)) {
                 missed.add(key);
             } else {
                 try {
-                    hits.put(key, clazz.cast(rawHits.get(key)));
+                    hits.add(clazz.cast(rawHits.get(prefix + key)));
                 } catch (ClassCastException e) {
                     missed.add(key);
                 }
@@ -102,18 +102,33 @@ import java.util.logging.Logger;
         missed = keys;
       }
 
-      return new MatchResult(new ArrayList<>(hits.values()), missed);
+      return new MatchResult(new ArrayList<>(hits), missed);
     }
 
     @Override
-    public <T> List<T> getAll(List<String> keys, Class<T> clazz, MissedHitsProvider<T> missedHitsProvider) {
-        List<T> output = new LinkedList<>();
-        MatchResult<T> result = getAll(keys, clazz);
+    @SuppressWarnings("unchecked")
+    public <V> MatchResult<V> getAll(List<String> keys, Class<V> clazz) {
+      List<V> hits = new LinkedList<>();
+      List<String> missed = new LinkedList<>();
 
-        output.addAll(result.getHits());
-        if(result.hasMissedKeys()) output.addAll(missedHitsProvider.get(result.getMissedKeys()));
+      try {
+        Map<String, Object> rawHits = memcacheService.getAll(keys);
+        for(String key : keys) {
+            if(!rawHits.containsKey(key)) {
+                missed.add(key);
+            } else {
+                try {
+                    hits.add(clazz.cast(rawHits.get(key)));
+                } catch (ClassCastException e) {
+                    missed.add(key);
+                }
+            }
+        }
+      } catch (Exception e) {
+        missed = keys;
+      }
 
-        return output;
+      return new MatchResult(new ArrayList<>(hits), missed);
     }
 
     /**
@@ -165,5 +180,15 @@ import java.util.logging.Logger;
   public void flushCache() {
     memcacheService.clearAll();
     log.info("Cache was flushed for namespace: " + memcacheService.getNamespace());
+  }
+
+  private List<String> withPrefix(String prefix, List<String> list) {
+      List<String> result = new LinkedList<>();
+
+      for(String item : list) {
+          result.add(prefix + item);
+      }
+
+      return result;
   }
 }
