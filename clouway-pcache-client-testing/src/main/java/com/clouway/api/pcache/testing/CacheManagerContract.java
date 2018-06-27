@@ -149,7 +149,7 @@ public abstract class CacheManagerContract {
     cacheManager.put("::key1::", "::value1::");
     cacheManager.put("::key2::", "::value2::");
 
-    MatchResult<String> result = cacheManager.getAll(Arrays.asList("::key1::", "::key2::"), String.class);
+    MatchResult<String> result = cacheManager.getAll( Arrays.asList("::key1::", "::key2::"), String.class);
 
     assertThat(result.hasMissedKeys(), is(equalTo(false)));
     assertThat(result.getHits(), containsInAnyOrder("::value1::", "::value2::"));
@@ -176,27 +176,22 @@ public abstract class CacheManagerContract {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
-  public void getMissedFromOtherProvider() {
-    cacheManager.put("::key1::", "::value1::");
+  public void getPartialCacheHitsWithUsingPrefix() {
+    cacheManager.put("prefix::key1::", "::value1::");
 
-    final MissedHitsProvider<String> func = context.mock(MissedHitsProvider.class);
+    MatchResult<String> result = cacheManager.getAll("prefix", Arrays.asList("::key1::", "::key2::"), String.class);
 
-    context.checking(new Expectations() {{
-      oneOf(func).get(Arrays.asList("::key2::", "::key3::"));
-      will(returnValue(Arrays.asList("::value2::", "::value3::")));
-    }});
-
-    List<String> result = cacheManager.getAll(Arrays.asList("::key1::", "::key2::", "::key3::"), String.class, func);
-
-    assertThat(result, containsInAnyOrder("::value1::", "::value2::", "::value3::"));
+    assertThat(result.getHits().size(), is(equalTo(1)));
+    assertThat(result.hasMissedKeys(), is(equalTo(true)));
+    assertThat(result.getHits(), containsInAnyOrder("::value1::"));
+    assertThat(result.getMissedKeys(), containsInAnyOrder("::key2::"));
   }
 
   @Test
   public void tryToGetObjectFromDifferentType() {
     cacheManager.put("::key1::", 540000000000000000L);
 
-    MatchResult<Character> booleanResult = cacheManager.getAll(Arrays.asList("::key1::"), Character.class);
+    MatchResult<Character> booleanResult = cacheManager.getAll( Arrays.asList("::key1::"), Character.class);
 
     assertThat(booleanResult.hasMissedKeys(), is(equalTo(true)));
   }
@@ -206,8 +201,8 @@ public abstract class CacheManagerContract {
     cacheManager.put("::key1::", "::value::");
     cacheManager.put("::key2::", true);
 
-    MatchResult<String> stringResult = cacheManager.getAll(Arrays.asList("::key1::", "::key2::"), String.class);
-    MatchResult<Boolean> booleanResult = cacheManager.getAll(Arrays.asList("::key1::", "::key2::"), Boolean.class);
+    MatchResult<String> stringResult = cacheManager.getAll("", Arrays.asList("::key1::", "::key2::"), String.class);
+    MatchResult<Boolean> booleanResult = cacheManager.getAll("", Arrays.asList("::key1::", "::key2::"), Boolean.class);
 
     assertThat(stringResult.getMissedKeys(), is(equalTo(Arrays.asList("::key2::"))));
     assertThat(stringResult.getHits(), is(equalTo(Arrays.asList("::value::"))));
@@ -223,22 +218,10 @@ public abstract class CacheManagerContract {
     cacheManager.put("::key1::", person);
     cacheManager.put("::key2::", 15);
 
-    MatchResult<Person> result = cacheManager.getAll(Arrays.asList("::key1::", "::key2::"), Person.class);
+    MatchResult<Person> result = cacheManager.getAll("", Arrays.asList("::key1::", "::key2::"), Person.class);
 
     assertThat(result.getMissedKeys(), is(equalTo(Arrays.asList("::key2::"))));
     assertThat(result.getHits().get(0), is(equalTo(person)));
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  public void doNotCallProviderIfThereIsNoMissedKeys() {
-    cacheManager.put("::key1::", "::value1::");
-
-    final MissedHitsProvider<String> func = context.mock(MissedHitsProvider.class);
-
-    List<String> result = cacheManager.getAll(Arrays.asList("::key1::"), String.class, func);
-
-    assertThat(result, containsInAnyOrder("::value1::"));
   }
 
   protected abstract CacheManager createCacheManager();
