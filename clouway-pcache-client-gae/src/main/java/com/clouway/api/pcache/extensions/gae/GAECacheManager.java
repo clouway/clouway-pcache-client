@@ -157,6 +157,34 @@ import java.util.logging.Logger;
   }
 
   @Override
+  public boolean lock(String key) {
+    SafeValue safeValue = getSafeValue(key);
+
+    if (safeValue == null) {
+      put(key, 1);// value does not matter here
+      safeValue = getSafeValue(key);
+
+      return safePut(key, safeValue, 2);// value does not matter here
+    }
+
+    return false;
+  }
+
+  @Override
+  public boolean lock(String key, int expiration) {
+    SafeValue safeValue = getSafeValue(key);
+
+    if (safeValue == null) {
+      put(key, 1, expiration);// value does not matter here
+      safeValue = getSafeValue(key);
+
+      return safePut(key, safeValue, 2, expiration);// value does not matter here
+    }
+
+    return false;
+  }
+
+  @Override
   public SafeValue getSafeValue(Object key) {
     IdentifiableValue result = memcacheService.getIdentifiable(key);
     if (result == null) {

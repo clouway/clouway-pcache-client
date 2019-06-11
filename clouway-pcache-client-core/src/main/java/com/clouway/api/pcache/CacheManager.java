@@ -93,6 +93,21 @@ public interface CacheManager {
    boolean safePut(Object key, SafeValue safeValue, Object value, Integer expiration);
 
    /**
+    * Atomically locks the key
+    * @param key the key to lock
+    * @return true if the key was not locked already, false otherwise
+    */
+   boolean lock(String key);
+
+   /**
+    * Atomically locks the key
+    * @param key the key to lock
+    * @param expiration the expiration of the lock in seconds
+    * @return true if the key was not locked already, false otherwise
+    */
+   boolean lock(String key, int expiration);
+
+   /**
     * Gets value from cache which is safe value (value that could be updated safely in concurrent manner).
     *
     * @param key the key to which value is bound
