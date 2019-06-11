@@ -3,10 +3,8 @@ package com.clouway.api.pcache.testing;
 import com.clouway.api.pcache.CacheException;
 import com.clouway.api.pcache.CacheManager;
 import com.clouway.api.pcache.CacheTime;
-import com.clouway.api.pcache.MissedHitsProvider;
 import com.clouway.api.pcache.MatchResult;
 import com.clouway.api.pcache.SafeValue;
-import org.jmock.Expectations;
 import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.junit.Assert;
 import org.junit.Before;
@@ -15,7 +13,6 @@ import org.junit.Test;
 
 import java.io.Serializable;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 
 import static junit.framework.TestCase.assertNull;
@@ -222,6 +219,18 @@ public abstract class CacheManagerContract {
 
     assertThat(result.getMissedKeys(), is(equalTo(Arrays.asList("::key2::"))));
     assertThat(result.getHits().get(0), is(equalTo(person)));
+  }
+
+  @Test
+  public void lockUnknownKey() {
+    assertTrue(cacheManager.lock("::key::"));
+    assertFalse(cacheManager.lock("::key::"));
+  }
+
+  @Test
+  public void lockExistingKey() {
+    cacheManager.put("::key::", 1);
+    assertFalse(cacheManager.lock("::key::"));
   }
 
   protected abstract CacheManager createCacheManager();
