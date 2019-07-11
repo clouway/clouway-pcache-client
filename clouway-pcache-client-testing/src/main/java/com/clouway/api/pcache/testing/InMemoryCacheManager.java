@@ -67,6 +67,13 @@ public class InMemoryCacheManager implements CacheManager {
     values.put(key, new TimeValue(0, value));
   }
 
+  @Override
+  public void putAll(Map<String, Object> values, Long mills) {
+    for (String key : values.keySet()) {
+      this.values.put(key, new TimeValue(0, values.get(key)));
+    }
+  }
+
   public Object get(String key) {
     if (!values.containsKey(key)) {
       return null;

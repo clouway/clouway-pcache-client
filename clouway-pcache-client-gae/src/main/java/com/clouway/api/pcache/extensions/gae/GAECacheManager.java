@@ -2,7 +2,6 @@ package com.clouway.api.pcache.extensions.gae;
 
 import com.clouway.api.pcache.CacheExceptionTranslator;
 import com.clouway.api.pcache.CacheManager;
-import com.clouway.api.pcache.MissedHitsProvider;
 import com.clouway.api.pcache.MatchResult;
 import com.clouway.api.pcache.SafeValue;
 import com.google.appengine.api.memcache.Expiration;
@@ -10,7 +9,6 @@ import com.google.appengine.api.memcache.MemcacheService;
 import com.google.appengine.api.memcache.MemcacheService.IdentifiableValue;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +22,7 @@ import java.util.logging.Logger;
   private MemcacheService memcacheService;
   private CacheExceptionTranslator translator;
 
-  public GAECacheManager(MemcacheService memcacheService, CacheExceptionTranslator translator) {
+  GAECacheManager(MemcacheService memcacheService, CacheExceptionTranslator translator) {
     this.memcacheService = memcacheService;
     this.translator = translator;
   }
@@ -37,7 +35,7 @@ import java.util.logging.Logger;
    * @param seconds the length of the period in seconds
    */
   public void put(String key, Object value, Integer seconds) {
-    put(key, value, seconds * 1000l);
+    put(key, value, seconds * 1000L);
   }
 
   /**
@@ -58,6 +56,11 @@ import java.util.logging.Logger;
 
   public void put(String key, Object value) {
     memcacheService.put(key, value);
+  }
+
+  @Override
+  public void putAll(Map<String, Object> values, Long mills) {
+    memcacheService.putAll(values, Expiration.byDeltaMillis(mills.intValue()));
   }
 
 

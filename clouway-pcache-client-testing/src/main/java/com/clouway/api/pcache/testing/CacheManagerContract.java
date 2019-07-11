@@ -13,6 +13,8 @@ import org.junit.Test;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Objects;
 
 import static junit.framework.TestCase.assertNull;
@@ -53,6 +55,26 @@ public abstract class CacheManagerContract {
     assertEquals(result, value);
   }
 
+  @Test
+  public void getWhatWasPutInBulk() {
+    cacheManager.putAll(Collections.<String, Object>singletonMap("::key 1::", "::value 1::"), 1000L);
+
+    String result = (String) cacheManager.get("::key 1::");
+    assertEquals(result, "::value 1::");
+  }
+  
+  @Test
+  public void bulkGetWhatWasPutInBulk () {
+    cacheManager.putAll(new HashMap<String, Object>() {{
+      put("::key 1::", "::value 1::");
+      put("::key 2::", "::value 2::");
+      put("::key 3::", "::value 3::");
+    }}, 10000L);
+    
+    MatchResult<String> result = cacheManager.getAll(Arrays.asList("::key 1::", "::key 2::", "::key 3::"), String.class);
+
+    assertEquals(result.getHits(), Arrays.asList("::value 1::", "::value 2::", "::value 3::"));
+  }
 
   @Test
   public void nonSerializedObject() {
