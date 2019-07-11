@@ -1,6 +1,7 @@
 package com.clouway.api.pcache;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents s cache manager which is responsible for all caching operations.
@@ -34,6 +35,14 @@ public interface CacheManager {
     * @param value the object that will be cached
     */
    void put(String key, Object value);
+   
+  /**
+   * Puts a set of Objects in the cache.
+   * 
+   * @param values the values associated with their keys
+   * @param mills the expiration time in milliseconds
+   */
+  void putAll(Map<String, Object> values, Long mills);
 
    /**
     * Gets an object from the cache by it's key
