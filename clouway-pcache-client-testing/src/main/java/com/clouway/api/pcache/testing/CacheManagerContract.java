@@ -62,17 +62,17 @@ public abstract class CacheManagerContract {
     String result = (String) cacheManager.get("::key 1::");
     assertEquals(result, "::value 1::");
   }
-  
+
   @Test
-  public void bulkGetWhatWasPutInBulk () {
+  public void bulkGetWhatWasPutInBulk() {
     cacheManager.putAll(new HashMap<String, Object>() {{
       put("::key 1::", "::value 1::");
       put("::key 2::", "::value 2::");
       put("::key 3::", "::value 3::");
     }}, 10000L);
-    
-    MatchResult<String> result = cacheManager.getAll(Arrays.asList("::key 1::", "::key 2::", "::key 3::"), String.class);
 
+    MatchResult<String> result = cacheManager.getAll(Arrays.asList("::key 1::", "::key 2::", "::key 3::"), String.class);
+    
     assertEquals(result.getHits(), Arrays.asList("::value 1::", "::value 2::", "::value 3::"));
   }
 
