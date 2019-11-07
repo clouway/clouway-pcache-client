@@ -6,6 +6,7 @@ import com.clouway.api.pcache.MatchResult;
 import com.clouway.api.pcache.NamespaceProvider;
 import com.clouway.api.pcache.SafeValue;
 import com.clouway.api.pcache.extensions.redis.RedisFormat.ValueAndFlags;
+import com.clouway.api.pcache.extensions.redis.util.RedisStorageClient;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Transaction;
 import redis.clients.jedis.params.SetParams;
@@ -17,6 +18,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ExecutionException;
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -24,10 +26,12 @@ import java.util.Map.Entry;
 class RedisCacheManager implements CacheManager {
   private static final int DEFAULT_TIMEOUT_SECONDS = 3000;
   private final Jedis jedis;
+  private final RedisStorageClient storageClient;
   private final NamespaceProvider namespaceProvider;
 
-  RedisCacheManager(Jedis jedis, NamespaceProvider namespaceProvider) {
+  RedisCacheManager(Jedis jedis, RedisStorageClient storageClient, NamespaceProvider namespaceProvider) {
     this.jedis = jedis;
+    this.storageClient = storageClient;
     this.namespaceProvider = namespaceProvider;
   }
 
@@ -35,11 +39,17 @@ class RedisCacheManager implements CacheManager {
   public void put(String key, Object value, Integer cacheTimeSeconds) {
     try {
       ValueAndFlags valueAndFlag = RedisFormat.format(value);
-      byte[] persistentKey = keyOf(key);
+//      byte[] persistentKey = keyOf(key);
+      String persistentKey = keyOfAsString(key);
       byte[] item = new CacheItem(valueAndFlag.value, valueAndFlag.flags).toByteArray();
-      jedis.setex(persistentKey, cacheTimeSeconds, item);
+//      jedis.setex(persistentKey, cacheTimeSeconds, item);
+      storageClient.set(persistentKey, cacheTimeSeconds, item).get();
     } catch (IllegalArgumentException ex) {
       throw new CacheException("The received value cannot be serialized.");
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    } catch (ExecutionException e) {
+      e.printStackTrace();
     }
   }
 
@@ -65,12 +75,20 @@ class RedisCacheManager implements CacheManager {
       keyvalues.add(item);
     }
 
-    jedis.mset(keyvalues.toArray(new byte[][]{}));
+//    jedis.mset(keyvalues.toArray(new byte[][]{}));
+    try {
+      storageClient.putAll(keyvalues).get();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    } catch (ExecutionException e) {
+      e.printStackTrace();
+    }
   }
 
   @Override
   public Object get(String key) {
-    byte[] value = jedis.get(keyOf(key));
+//    byte[] value = jedis.get(keyOf(key));
+    byte[] value = storageClient.get(keyOfAsString(key));
 
     if (value == null) {
       return null;
@@ -86,8 +104,10 @@ class RedisCacheManager implements CacheManager {
     List<String> missed = new LinkedList<>();
 
     try {
-      List<byte[]> prefixedKeys = withPrefix(prefix, keys);
-      List<byte[]> rawHits = jedis.mget(prefixedKeys.toArray(new byte[0][]));
+//      List<byte[]> prefixedKeys = withPrefix(prefix, keys);
+//      List<byte[]> rawHits = jedis.mget(prefixedKeys.toArray(new byte[0][]));
+      List<String> prefixedKeys = withPrefixAsString(prefix, keys);
+      List<byte[]> rawHits = storageClient.getAll(prefixedKeys);
 
       for (int i = 0; i < rawHits.size(); i++) {
         if (rawHits.get(i) == null) {
@@ -125,7 +145,8 @@ class RedisCacheManager implements CacheManager {
 
   @Override
   public void remove(String key) {
-    jedis.del(keyOf(key));
+//    jedis.del(keyOf(key));
+    storageClient.delete(keyOfAsString(key));
   }
 
   @Override
@@ -227,16 +248,20 @@ class RedisCacheManager implements CacheManager {
 
   @Override
   public boolean contains(Object key) {
-    return jedis.get(keyOf(key.toString())) != null;
+    return get(key.toString()) != null;
   }
 
   @Override
   public void flushCache() {
-    jedis.flushAll();
+//    jedis.flushAll();
+    storageClient.flushAll();
   }
 
   private byte[] keyOf(String key) {
     return String.format("%s:%s", namespaceProvider.get(), key).getBytes(StandardCharsets.UTF_8);
+  }
+  private String keyOfAsString(String key) {
+    return String.format("%s:%s", namespaceProvider.get(), key);
   }
 
   private List<byte[]> withPrefix(String prefix, List<String> list) {
@@ -244,6 +269,15 @@ class RedisCacheManager implements CacheManager {
 
     for (String item : list) {
       result.add(keyOf(prefix + item));
+    }
+
+    return result;
+  }
+  private List<String> withPrefixAsString(String prefix, List<String> list) {
+    List<String> result = new LinkedList<>();
+
+    for (String item : list) {
+      result.add(keyOfAsString(prefix + item));
     }
 
     return result;
