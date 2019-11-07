@@ -2,6 +2,7 @@ package com.clouway.api.pcache.extensions.redis;
 
 import com.clouway.api.pcache.CacheManager;
 import com.clouway.api.pcache.NamespaceProvider;
+import com.clouway.api.pcache.extensions.redis.util.RedisStorageClient;
 import redis.clients.jedis.Jedis;
 
 /**
@@ -67,6 +68,6 @@ public final class RedisCacheManagerFactory {
       jedis = new Jedis(redisHost);
     }
     
-    return new RedisCacheManager(jedis, namespaceProvider);
+    return new RedisCacheManager(jedis, new RedisStorageClient("redis://" + redisHost, 30), namespaceProvider);
   }
 }
