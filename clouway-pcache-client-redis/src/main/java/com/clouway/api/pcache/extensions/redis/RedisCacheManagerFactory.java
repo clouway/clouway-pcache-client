@@ -2,7 +2,8 @@ package com.clouway.api.pcache.extensions.redis;
 
 import com.clouway.api.pcache.CacheManager;
 import com.clouway.api.pcache.NamespaceProvider;
-import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
 
 /**
  * RedisCacheManagerFactory is a CacheManagerFactory.
@@ -58,15 +59,14 @@ public final class RedisCacheManagerFactory {
    * @return the newly created cache manager
    */
   public static CacheManager create(String redisHost, NamespaceProvider namespaceProvider) {
-    Jedis jedis;
-
+    JedisPool pool;
+    
     if (redisHost.contains(":")) {
       String[] parts = redisHost.split(":");
-      jedis = new Jedis(parts[0], Integer.parseInt(parts[1]));
+      pool = new JedisPool(new JedisPoolConfig(), parts[0], Integer.parseInt(parts[1]));
     } else {
-      jedis = new Jedis(redisHost);
+      pool = new JedisPool(redisHost);
     }
-    
-    return new RedisCacheManager(jedis, namespaceProvider);
+    return new RedisCacheManager(pool, namespaceProvider);
   }
 }

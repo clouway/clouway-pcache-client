@@ -22,8 +22,7 @@ public class RedisCacheManagerTest extends CacheManagerContract {
   @ClassRule
   public static GenericContainer redis = new GenericContainer<>("redis:5.0.3-alpine")
           .withExposedPorts(6379);
-
-
+  
   @Test
   public void keysAreNamespaceAware() throws Exception {
     final LinkedList<String> namespaces = new LinkedList<String>();
