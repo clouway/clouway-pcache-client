@@ -30,7 +30,7 @@ public final class RedisCacheManagerFactory {
 
   /**
    * Creates a new instance of {@link CacheManager} that uses Redis.
-   * 
+   *
    * @return the newly created cache manager
    */
   public static CacheManager create() {
@@ -43,14 +43,36 @@ public final class RedisCacheManagerFactory {
   }
 
   /**
-    * Creates a new instance of {@link CacheManager} that uses Redis.
-    *
-    * @param redisHost the host of the Redis server.
-    * @return the newly created cache manager
-    */
-   public static CacheManager create(String redisHost) {
-     return create(redisHost, DEFAULT_NAMESPACE_PROVIDER);
-   }
+   * Creates a new instance of {@link CacheManager} that uses Redis.
+   *
+   * @param namespaceProvider the namespace provider
+   * @return the newly created cache manager
+   */
+  public static CacheManager create(NamespaceProvider namespaceProvider) {
+    String redistHost = System.getenv("REDIS_HOST");
+    if (redistHost == null || "".equals(redistHost)) {
+      redistHost = DEFAULT_REDIS_HOST;
+    }
+
+    return create(redistHost, namespaceProvider);
+  }
+
+  /**
+   * Creates a new instance of {@link CacheManager} that uses Redis. The target host is retrieved from the environment
+   * or using the 
+   *
+   * @param namespaceProvider the namespace provider
+   * @param poolConfig        the pool configuration
+   * @return the newly created cache manager
+   */
+  public static CacheManager create(NamespaceProvider namespaceProvider, JedisPoolConfig poolConfig) {
+    String redistHost = System.getenv("REDIS_HOST");
+    if (redistHost == null || "".equals(redistHost)) {
+      redistHost = DEFAULT_REDIS_HOST;
+    }
+
+    return create(redistHost, namespaceProvider, poolConfig);
+  }
 
   /**
    * Creates a new instance of {@link CacheManager} that uses Redis.
@@ -58,15 +80,39 @@ public final class RedisCacheManagerFactory {
    * @param redisHost the host of the Redis server.
    * @return the newly created cache manager
    */
-  public static CacheManager create(String redisHost, NamespaceProvider namespaceProvider) {
+  public static CacheManager create(String redisHost) {
+    return create(redisHost, DEFAULT_NAMESPACE_PROVIDER);
+  }
+
+
+  /**
+   * Creates a new instance of {@link CacheManager} that uses Redis.
+   *
+   * @param redisHost         the host of the Redis server.
+   * @param poolConfig        the configuration of the redis pool
+   * @param namespaceProvider the namespace provider used for multi-tenancy
+   * @return the newly created cache manager
+   */
+  public static CacheManager create(String redisHost, NamespaceProvider namespaceProvider, JedisPoolConfig poolConfig) {
     JedisPool pool;
-    
+
     if (redisHost.contains(":")) {
       String[] parts = redisHost.split(":");
-      pool = new JedisPool(new JedisPoolConfig(), parts[0], Integer.parseInt(parts[1]));
+      pool = new JedisPool(poolConfig, parts[0], Integer.parseInt(parts[1]));
     } else {
-      pool = new JedisPool(redisHost);
+      pool = new JedisPool(new JedisPoolConfig(), redisHost);
     }
     return new RedisCacheManager(pool, namespaceProvider);
+  }
+
+  /**
+   * Creates a new instance of {@link CacheManager} that uses Redis.
+   *
+   * @param redisHost the host of the Redis server.
+   * @param namespaceProvider the namespace provider used for multi-tenancy
+   * @return the newly created cache manager
+   */
+  public static CacheManager create(String redisHost, NamespaceProvider namespaceProvider) {
+    return create(redisHost, namespaceProvider, new JedisPoolConfig());
   }
 }
