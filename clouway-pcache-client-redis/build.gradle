@@ -24,13 +24,13 @@ description = 'clouWay public cache client library for Redis'
 dependencies {
   compile project(':clouway-pcache-client-core')
 
-  compile 'redis.clients:jedis:3.1.0'
+  compile 'redis.clients:jedis:4.2.3'
 
   providedCompile 'com.google.inject:guice:3.0'
   providedCompile 'com.google.guava:guava:18.0', 'junit:junit:4.11'
   
   testCompile project(':clouway-pcache-client-testing')
-  testCompile "org.testcontainers:testcontainers:1.12.1"
+  testCompile "org.testcontainers:testcontainers:1.17.1"
   testCompile 'org.easymock:easymock:3.4'
 }
 

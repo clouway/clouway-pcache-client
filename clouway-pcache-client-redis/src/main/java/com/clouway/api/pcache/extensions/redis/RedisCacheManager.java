@@ -6,29 +6,30 @@ import com.clouway.api.pcache.MatchResult;
 import com.clouway.api.pcache.NamespaceProvider;
 import com.clouway.api.pcache.SafeValue;
 import com.clouway.api.pcache.extensions.redis.RedisFormat.ValueAndFlags;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.Transaction;
-import redis.clients.jedis.params.SetParams;
+import redis.clients.jedis.UnifiedJedis;
+import redis.clients.jedis.args.FlushMode;
+import redis.clients.jedis.resps.LibraryInfo;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class RedisCacheManager implements CacheManager {
   private static final int DEFAULT_TIMEOUT_SECONDS = 3000;
-  private final JedisPool pool;
+  private final UnifiedJedis jedis;
   private final NamespaceProvider namespaceProvider;
 
-  RedisCacheManager(JedisPool pool, NamespaceProvider namespaceProvider) {
-    this.pool = pool;
+  RedisCacheManager(UnifiedJedis pool, NamespaceProvider namespaceProvider) {
+    this.jedis = pool;
     this.namespaceProvider = namespaceProvider;
   }
 
@@ -38,11 +39,7 @@ class RedisCacheManager implements CacheManager {
       ValueAndFlags valueAndFlag = RedisFormat.format(value);
       byte[] persistentKey = keyOf(key);
       byte[] item = new CacheItem(valueAndFlag.value, valueAndFlag.flags).toByteArray();
-
-      try (Jedis jedis = pool.getResource()) {
-        jedis.setex(persistentKey, cacheTimeSeconds, item);
-      }
-
+      jedis.setex(persistentKey, cacheTimeSeconds, item);
     } catch (IllegalArgumentException ex) {
       throw new CacheException("The received value cannot be serialized.");
     }
@@ -70,22 +67,18 @@ class RedisCacheManager implements CacheManager {
       keyvalues.add(item);
     }
 
-    try (Jedis jedis = pool.getResource()) {
-      jedis.mset(keyvalues.toArray(new byte[][]{}));
-    }
+    jedis.mset(keyvalues.toArray(new byte[][]{}));
+
   }
 
   @Override
   public Object get(String key) {
-    try (Jedis jedis = pool.getResource()) {
-      byte[] value = jedis.get(keyOf(key));
-
-      if (value == null) {
-        return null;
-      }
-      CacheItem item = CacheItem.parseFrom(value);
-      return RedisFormat.parse(item.getValue(), item.getFlags());
+    byte[] value = jedis.get(keyOf(key));
+    if (value == null) {
+      return null;
     }
+    CacheItem item = CacheItem.parseFrom(value);
+    return RedisFormat.parse(item.getValue(), item.getFlags());
   }
 
   @Override
@@ -93,38 +86,37 @@ class RedisCacheManager implements CacheManager {
     List<V> hits = new LinkedList<>();
     List<String> missed = new LinkedList<>();
 
-    try (Jedis jedis = pool.getResource()) {
-      try {
-        List<byte[]> prefixedKeys = withPrefix(prefix, keys);
-        List<byte[]> rawHits = jedis.mget(prefixedKeys.toArray(new byte[0][]));
+    try {
+      List<byte[]> prefixedKeys = withPrefix(prefix, keys);
+      List<byte[]> rawHits = jedis.mget(prefixedKeys.toArray(new byte[0][]));
 
-        for (int i = 0; i < rawHits.size(); i++) {
-          if (rawHits.get(i) == null) {
-            missed.add(keys.get(i));
-            continue;
-          }
-
-          byte[] itemValue = rawHits.get(i);
-          CacheItem item = CacheItem.parseFrom(itemValue);
-
-          if (item.getValue() == null) {
-            missed.add(keys.get(i));
-            continue;
-          }
-          Object value = RedisFormat.parse(item.getValue(), item.getFlags());
-
-          if (clazz.isInstance(value)) {
-            hits.add((V) value);
-          } else {
-            missed.add(keys.get(i));
-          }
+      for (int i = 0; i < rawHits.size(); i++) {
+        if (rawHits.get(i) == null) {
+          missed.add(keys.get(i));
+          continue;
         }
-      } catch (Exception e) {
-        missed = keys;
-      }
 
-      return new MatchResult<V>(new ArrayList<V>(hits), missed);
+        byte[] itemValue = rawHits.get(i);
+        CacheItem item = CacheItem.parseFrom(itemValue);
+
+        if (item.getValue() == null) {
+          missed.add(keys.get(i));
+          continue;
+        }
+        Object value = RedisFormat.parse(item.getValue(), item.getFlags());
+
+        if (clazz.isInstance(value)) {
+          hits.add((V) value);
+        } else {
+          missed.add(keys.get(i));
+        }
+      }
+    } catch (Exception e) {
+      missed = keys;
     }
+
+    return new MatchResult<V>(new ArrayList<V>(hits), missed);
+
   }
 
   @Override
@@ -134,9 +126,7 @@ class RedisCacheManager implements CacheManager {
 
   @Override
   public void remove(String key) {
-    try (Jedis jedis = pool.getResource()) {
-      jedis.del(keyOf(key));
-    }
+    jedis.del(keyOf(key));
   }
 
   @Override
@@ -150,41 +140,32 @@ class RedisCacheManager implements CacheManager {
       return false;
     }
 
-    try (Jedis jedis = pool.getResource()) {
-      RedisSafeValue safeValue = (RedisSafeValue) sv;
+    RedisSafeValue safeValue = (RedisSafeValue) sv;
 
-      ValueAndFlags valueAndFlags = RedisFormat.format(value);
-      byte[] formattedKey = keyOf(key.toString());
+    ValueAndFlags valueAndFlags = RedisFormat.format(value);
 
-      jedis.watch(formattedKey);
-      byte[] targetValue = jedis.get(formattedKey);
+    byte[] formattedKey = keyOf(key.toString());
+    byte[] targetValue = jedis.get(formattedKey);
 
-      if (targetValue == null) {
-        jedis.setex(formattedKey, expiration, valueAndFlags.value);
-        jedis.unwatch();
-        return false;
-      }
+    CacheItem newItem = new CacheItem(valueAndFlags.value, valueAndFlags.flags);
 
-      CacheItem item = CacheItem.parseFrom(targetValue);
-
-      ValueAndFlags oldValue = RedisFormat.format(safeValue.getValue());
-      Object existingValue = RedisFormat.parse(item.getValue(), item.getFlags());
-
-      ValueAndFlags existingValueAndFlags = RedisFormat.format(existingValue);
-
-      // The existing value was updated by someone else.
-      if (!Arrays.equals(existingValueAndFlags.value, oldValue.value)) {
-        jedis.unwatch();
-        return false;
-      }
-
-      Transaction transaction = jedis.multi();
-      CacheItem newItem = new CacheItem(valueAndFlags.value, valueAndFlags.flags);
-      transaction.set(formattedKey, newItem.toByteArray(), SetParams.setParams().ex(expiration));
-      transaction.exec();
-
-      return true;
+    if (targetValue == null) {
+      jedis.setex(formattedKey, expiration, newItem.toByteArray());
+      return false;
     }
+
+    ValueAndFlags oldValue = RedisFormat.format(safeValue.getValue());
+    CacheItem existingItem = new CacheItem(oldValue.value, oldValue.flags);
+    
+    String luaScriptCAS = "if redis.call('GET', KEYS[1]) == ARGV[1] then redis.call('SET', KEYS[1], ARGV[2]); return 0; end; return 1";
+    Long retVal = (Long) jedis.eval(
+            luaScriptCAS.getBytes(StandardCharsets.UTF_8),
+            Collections.singletonList(formattedKey),
+            Arrays.asList(existingItem.toByteArray(), newItem.toByteArray())
+    );
+    
+    return retVal == 0;
+
   }
 
   @Override
@@ -220,40 +201,37 @@ class RedisCacheManager implements CacheManager {
   public SafeValue getSafeValue(Object key) {
     byte[] safeKey = keyOf(key.toString());
 
-    try (Jedis jedis = pool.getResource()) {
-      byte[] value = jedis.get(safeKey);
-      if (value == null) {
-        return null;
-      }
 
-      CacheItem item = CacheItem.parseFrom(value);
-      if (item != null && item.getValue() == null) {
-        return null;
-      }
-
-      Object itemValue = RedisFormat.parse(item.getValue(), item.getFlags());
-      return new RedisSafeValue(itemValue, 0L);
+    byte[] value = jedis.get(safeKey);
+    if (value == null) {
+      return null;
     }
+
+    CacheItem item = CacheItem.parseFrom(value);
+    if (item != null && item.getValue() == null) {
+      return null;
+    }
+
+    Object itemValue = RedisFormat.parse(item.getValue(), item.getFlags());
+    return new RedisSafeValue(itemValue, 0L);
+
   }
 
   @Override
   public Long increment(Object o, Long l) {
-    try (Jedis jedis = pool.getResource()) {
-      return jedis.incrBy(keyOf(o.toString()), l);
-    }
+    return jedis.incrBy(keyOf(o.toString()), l);
   }
 
   @Override
   public boolean contains(Object key) {
-    try (Jedis jedis = pool.getResource()) {
-      return jedis.get(keyOf(key.toString())) != null;
-    }
+    return jedis.get(keyOf(key.toString())) != null;
   }
 
   @Override
   public void flushCache() {
-    try (Jedis jedis = pool.getResource()) {
-      jedis.flushAll();
+    Set<String> keys = jedis.keys("*");
+    for (String key : keys) {
+      jedis.del(key);
     }
   }
 

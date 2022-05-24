@@ -1,5 +1,5 @@
 ### clouway-pcache-client
-Acaching client library that works on GAE
+A caching client library.
 
 ### Adding as dependency
 
@@ -11,7 +11,8 @@ repositories {
 }
 
 dependencies {
-     compile 'com.clouway.pcache:clouway-pcache-clouway-gae:0.0.1'
+     compile 'com.clouway.pcache:clouway-pcache-clouway-redis:0.0.9'
+     compile 'com.clouway.pcache:clouway-pcache-clouway-gae:0.0.9'
 }
 ```
 
@@ -22,7 +23,7 @@ In Maven:
  <dependency>
     <groupId>com.clouway.pcache</groupId>
     <artifactId>clouway-pcache-client-gae</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.9</version>
  </dependency>
 
 ```
